@@ -1,5 +1,6 @@
 #include "PCAPLoader.cuh"
 
+// Load the pcap file into memory
 std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
     std::vector<Packet> packets;
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -44,6 +45,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
     return packets;
 }
 
+//Fragment the packet into multiple mbufs
 struct rte_mbuf* createPacketFragmentChain(const u_char* data, uint32_t length, uint16_t fragment_size, struct rte_mempool* mbuf_pool) {
     struct rte_mbuf* head = nullptr;
     struct rte_mbuf* current = nullptr;

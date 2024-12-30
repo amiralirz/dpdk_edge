@@ -1,68 +1,11 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <pcap.h>
-#include <rte_eal.h>
-#include <rte_ethdev.h>
-#include <rte_mbuf.h>
-#include <cstring>
-
 #include "PCAPLoader.cuh"
-
-void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, uint16_t mtu) {
-    constexpr uint16_t nb_rxd = 128;
-    constexpr uint16_t nb_txd = 512;
-    constexpr uint16_t burst_size = 32;
-
-    struct rte_mempool* mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", 8192, 256, 0,
-                                                            RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if (mbuf_pool == nullptr) {
-        rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
-    }
-
-    struct rte_eth_conf port_conf = {0};
-    if (rte_eth_dev_configure(port_id, 1, 1, &port_conf) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot configure device\n");
-    }
-
-    if (rte_eth_rx_queue_setup(port_id, 0, nb_rxd, rte_eth_dev_socket_id(port_id), nullptr, mbuf_pool) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot setup RX queue\n");
-    }
-
-    if (rte_eth_tx_queue_setup(port_id, 0, nb_txd, rte_eth_dev_socket_id(port_id), nullptr) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot setup TX queue\n");
-    }
-
-    if (rte_eth_dev_start(port_id) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot start device\n");
-    }
-
-    std::cout << "Sending packets through port " << port_id << "..." << std::endl;
-
-    for (const auto& packet : packets) {
-        struct rte_mbuf* mbuf_chain = createPacketFragmentChain(packet.data, packet.header.caplen, mtu, mbuf_pool);
-        if (!mbuf_chain) {
-            std::cerr << "Failed to create packet fragment chain." << std::endl;
-            continue;
-        }
-
-        if (rte_eth_tx_burst(port_id, 0, &mbuf_chain, 1) < 1) {
-            std::cerr << "Failed to send packet chain." << std::endl;
-            // Free the entire mbuf chain
-            struct rte_mbuf* temp;
-            while (mbuf_chain) {
-                temp = mbuf_chain->next;
-                rte_pktmbuf_free(mbuf_chain);
-                mbuf_chain = temp;
-            }
-        }
-    }
-
-    rte_eth_dev_stop(port_id);
-    rte_eth_dev_close(port_id);
-
-    std::cout << "All packets sent." << std::endl;
-}
+#include "TCore.cuh"
+#include "RCore.cuh"
+#include "Macros.cuh"
+#include "PortStatistics.cuh"
+#include "LogStatistics.cuh"
+#include "Params.cuh"
+#include "PortConfig.cuh"
 
 int main(int argc, char* argv[]) {
     if (rte_eal_init(argc, argv) < 0) {
@@ -70,15 +13,24 @@ int main(int argc, char* argv[]) {
     }
 
     std::string filePath = "/home/amirali/dpdk_assets/test/sample.pcap";
+    // std::vector<Packet> packets = loadPcapIntoMemory(filePath);    
 
-    // Load PCAP file into memory
-    std::vector<Packet> packets = loadPcapIntoMemory(filePath);
+    uint16_t rx_port_id = 0;  
+    rte_mempool* mbuf_pool;
+    ConfigPort(PortType::RX_PORT, rx_port_id, &mbuf_pool);
 
-    // Define MTU for fragmentation
-    constexpr uint16_t mtu = 1500;
+    PortStatistics statistics[2]; // 0 for rx, 1 for tx
+    int force_quit = 0;
+    RxCoreArgs rx_args = {rx_port_id, &force_quit, &statistics[0]};
 
-    // Send packets through port 0
-    sendPackets(packets, 0, mtu);
+    int lcore_id = 1;
+
+    rte_eal_remote_launch(RxCore, &rx_args, lcore_id);
+
+    while(!force_quit){
+        print_stats(statistics, 1);
+        rte_delay_ms(1000);
+    }
 
     return 0;
 }
