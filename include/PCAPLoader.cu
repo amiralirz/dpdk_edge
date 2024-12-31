@@ -15,6 +15,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
     struct pcap_pkthdr* header;
     const u_char* data;
     int res, packetCount = 0;
+    int total_size = 0;
 
     // Read packets from the file
     while ((res = pcap_next_ex(handle, &header, &data)) >= 0) {
@@ -27,6 +28,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
         packet.header = *header;
         packets.push_back(packet);
         packetCount++;
+        total_size += header->len;
         if(packetCount == 100000) {
             break;
         }   
@@ -39,6 +41,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
     }
 
     std::cout << "Successfully loaded " << packets.size() << " packets into memory." << std::endl;
+    std::cout << "Total size of packets: " << total_size << std::endl;
 
     // Close the pcap handle
     pcap_close(handle);

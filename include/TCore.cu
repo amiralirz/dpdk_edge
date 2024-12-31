@@ -37,10 +37,26 @@ int TxCore(void* args){
 
     printf("Starting TX core on port %u\n", port_id);
     int count = 0;
+    uint16_t ret;
+    int packet_index = 0;
+    struct rte_mbuf* mbuf[MAX_PKT_BURST];
+    rte_pktmbuf_alloc_bulk(mbuf_pool, mbuf, MAX_PKT_BURST);
 
     while (!(*force_quit)) {
-        sendPackets(packets, port_id, mbuf_pool, stats, &tx_buffer);
-        count++;
+        // sendPackets(packets, port_id, mbuf_pool, stats, &tx_buffer);
+        for (const auto& packet : packets) {
+            // struct rte_mbuf* mbuf_chain = createPacketFragmentChain(packet.data, packet.header.caplen, mtu, mbuf_pool);
+            uint8_t* pkt_data = (uint8_t*)rte_pktmbuf_append(mbuf[packet_index], packet.header.caplen);
+            rte_memcpy(pkt_data, packet.data, packet.header.caplen);
+            rte_eth_tx_buffer(port_id, 0, &tx_buffer, mbuf[packet_index]);
+            packet_index++;
+
+            if(packet_index == MAX_PKT_BURST){
+                rte_eth_tx_buffer_flush(port_id, 0, &tx_buffer);
+                packet_index = 0;
+                rte_pktmbuf_alloc_bulk(mbuf_pool, mbuf, MAX_PKT_BURST);
+            }
+        }
     }   
 
     return 0;
