@@ -18,7 +18,7 @@ void print_stats(PortStatistics* stats,const int num_ports) {
 }
 
 void measure_throughput(uint16_t port_id){
-    const int delay_ms = 1;
+    const int delay_ms = 1000;
     struct rte_eth_stats stats, next_stats;
     rte_eth_stats_get(port_id, &stats);
     rte_delay_ms(delay_ms);

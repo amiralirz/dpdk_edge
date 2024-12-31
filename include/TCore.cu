@@ -1,30 +1,24 @@
 #include "TCore.cuh"
 
-void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats) {
+void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats, rte_eth_dev_tx_buffer *tx_buffer) {
     constexpr uint16_t mtu = 1500;
     uint16_t ret;
 
+    int packet_index = 0;
+    struct rte_mbuf* mbuf[MAX_PKT_BURST];
+    rte_pktmbuf_alloc_bulk(mbuf_pool, mbuf, MAX_PKT_BURST);
+
     for (const auto& packet : packets) {
         // struct rte_mbuf* mbuf_chain = createPacketFragmentChain(packet.data, packet.header.caplen, mtu, mbuf_pool);
-        struct rte_mbuf* mbuf = rte_pktmbuf_alloc(mbuf_pool);
-        uint8_t* pkt_data = (uint8_t*)rte_pktmbuf_append(mbuf, packet.header.caplen);
-        memcpy(pkt_data, packet.data, packet.header.caplen);
+        uint8_t* pkt_data = (uint8_t*)rte_pktmbuf_append(mbuf[packet_index], packet.header.caplen);
+        rte_memcpy(pkt_data, packet.data, packet.header.caplen);
+        rte_eth_tx_buffer(port_id, 0, tx_buffer, mbuf[packet_index]);
+        packet_index++;
 
-        // if (!mbuf_chain) {
-        //     std::cerr << "Failed to create packet fragment chain." << std::endl;
-        //     continue;
-        // }
-
-        ret = rte_eth_tx_burst(port_id, 0, &mbuf, 1);
-        if (ret < 1) {
-            rte_pktmbuf_free(mbuf);
-            // Free the entire mbuf chain
-            // struct rte_mbuf* temp = nullptr;
-            // while (mbuf_chain) {
-            //     temp = mbuf_chain->next;
-            //     rte_pktmbuf_free(mbuf_chain);
-            //     mbuf_chain = temp;
-            // }
+        if(packet_index == MAX_PKT_BURST){
+            rte_eth_tx_buffer_flush(port_id, 0, tx_buffer);
+            packet_index = 0;
+            rte_pktmbuf_alloc_bulk(mbuf_pool, mbuf, MAX_PKT_BURST);
         }
     }
 }
@@ -38,15 +32,14 @@ int TxCore(void* args){
     rte_mempool* mbuf_pool = tx_args->mbuf_pool;
 
     // printf("mbuf_pool = %p\n", mbuf_pool);
+    static struct rte_eth_dev_tx_buffer tx_buffer;
+    rte_eth_tx_buffer_init(&tx_buffer, 32);
 
     printf("Starting TX core on port %u\n", port_id);
     int count = 0;
 
     while (!(*force_quit)) {
-        // if(count == 200){
-        //     break;
-        // }
-        sendPackets(packets, port_id, mbuf_pool, stats);
+        sendPackets(packets, port_id, mbuf_pool, stats, &tx_buffer);
         count++;
     }   
 

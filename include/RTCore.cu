@@ -11,9 +11,11 @@ int RTCore(void* args){
     int nb_rx;
 
     struct rte_mbuf* pkts_burst[BUSRT_SIZE];
+    static struct rte_eth_dev_tx_buffer tx_buffer;
+    rte_eth_tx_buffer_init(&tx_buffer, 32);
 
     while(!(*force_quit)){
-        sendPackets(packets, tx_port_id, mbuf_pool_tx, stats);
+        sendPackets(packets, tx_port_id, mbuf_pool_tx, stats, &tx_buffer);
         stats->tx_count += packets.size();
 
         nb_rx = rte_eth_rx_burst(rx_port_id, 0, pkts_burst, BUSRT_SIZE);

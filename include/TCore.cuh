@@ -9,7 +9,9 @@
 #include "rte_eal.h"
 #include "rte_ethdev.h"
 
-void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats);
+#define MAX_PKT_BURST 32
+
+void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats, rte_eth_dev_tx_buffer *tx_buffer);
 
 /*
 * The arguments for the TX core.
