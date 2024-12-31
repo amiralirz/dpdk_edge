@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     // printf("Total ports ddavailable: %d\n", rte_eth_dev_count_avail());
     RTE_LOG(INFO, USER1, "Total ports available: %d\n", rte_eth_dev_count_avail());
 
-    std::string filePath = "/home/amirali/sample.pcap";
+    std::string filePath = "/mnt/PSSD/trace_big_reg/HA_ens3f1np1_17_09_1403_h13_m37_26Dec_merged.pcap";
     std::vector<Packet> packets = loadPcapIntoMemory(filePath);    
 
     uint16_t rx_port_id = 1;  
