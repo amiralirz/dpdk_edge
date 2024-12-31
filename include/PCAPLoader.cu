@@ -27,7 +27,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
         packet.header = *header;
         packets.push_back(packet);
         packetCount++;
-        if(packetCount == 1000000) {
+        if(packetCount == 100000) {
             break;
         }   
     }

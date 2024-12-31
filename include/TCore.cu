@@ -43,9 +43,9 @@ int TxCore(void* args){
     int count = 0;
 
     while (!(*force_quit)) {
-        if(count == 20){
-            break;
-        }
+        // if(count == 200){
+        //     break;
+        // }
         sendPackets(packets, port_id, mbuf_pool, stats);
         count++;
     }   
