@@ -27,7 +27,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
         packet.header = *header;
         packets.push_back(packet);
         packetCount++;
-        if(packetCount == 1000) {
+        if(packetCount == 1000000) {
             break;
         }   
     }
@@ -49,6 +49,7 @@ std::vector<Packet> loadPcapIntoMemory(const std::string& filePath) {
 struct rte_mbuf* createPacketFragmentChain(const u_char* data, uint32_t length, uint16_t fragment_size, struct rte_mempool* mbuf_pool) {
     struct rte_mbuf* head = nullptr;
     struct rte_mbuf* current = nullptr;
+    uint16_t fragments = 0;
 
     while (length > 0) {
         uint16_t size = std::min(length, static_cast<uint32_t>(fragment_size));
@@ -67,7 +68,7 @@ struct rte_mbuf* createPacketFragmentChain(const u_char* data, uint32_t length, 
 
         uint8_t* pkt_data = (uint8_t*)rte_pktmbuf_append(mbuf, size);
         if (!pkt_data) {
-            std::cerr << "Failed to append data to mbuf." << std::endl;
+            std::cout << "Failed to append data to mbuf." << std::endl;
             rte_pktmbuf_free(mbuf);
             while (head) {
                 struct rte_mbuf* temp = head->next;
@@ -87,7 +88,8 @@ struct rte_mbuf* createPacketFragmentChain(const u_char* data, uint32_t length, 
             current->next = mbuf; // Link previous fragment
         }
         current = mbuf;
+        fragments++;
     }
-
+    
     return head;
 }

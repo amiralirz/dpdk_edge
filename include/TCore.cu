@@ -1,34 +1,8 @@
 #include "TCore.cuh"
 
-void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, uint16_t mtu) {
-    constexpr uint16_t nb_rxd = 128;
-    constexpr uint16_t nb_txd = 512;
-    constexpr uint16_t burst_size = 32;
-
-    struct rte_mempool* mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", 8192, 256, 0,
-                                                            RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if (mbuf_pool == nullptr) {
-        rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
-    }
-
-    struct rte_eth_conf port_conf = {0};
-    if (rte_eth_dev_configure(port_id, 1, 1, &port_conf) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot configure device\n");
-    }
-
-    if (rte_eth_rx_queue_setup(port_id, 0, nb_rxd, rte_eth_dev_socket_id(port_id), nullptr, mbuf_pool) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot setup RX queue\n");
-    }
-
-    if (rte_eth_tx_queue_setup(port_id, 0, nb_txd, rte_eth_dev_socket_id(port_id), nullptr) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot setup TX queue\n");
-    }
-
-    if (rte_eth_dev_start(port_id) < 0) {
-        rte_exit(EXIT_FAILURE, "Cannot start device\n");
-    }
-
-    std::cout << "Sending packets through port " << port_id << "..." << std::endl;
+void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats) {
+    constexpr uint16_t mtu = 1500;
+    uint16_t ret;
 
     for (const auto& packet : packets) {
         struct rte_mbuf* mbuf_chain = createPacketFragmentChain(packet.data, packet.header.caplen, mtu, mbuf_pool);
@@ -37,24 +11,41 @@ void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, uint16_t 
             continue;
         }
 
-        if (rte_eth_tx_burst(port_id, 0, &mbuf_chain, 1) < 1) {
-            std::cerr << "Failed to send packet chain." << std::endl;
+        ret = rte_eth_tx_burst(port_id, 0, &mbuf_chain, 1);
+        if (ret < 1) {
             // Free the entire mbuf chain
-            struct rte_mbuf* temp;
+            struct rte_mbuf* temp = nullptr;
             while (mbuf_chain) {
                 temp = mbuf_chain->next;
                 rte_pktmbuf_free(mbuf_chain);
                 mbuf_chain = temp;
             }
         }
+        stats->tx_count += ret;
+        stats->tx_bytes += packet.header.len;
     }
-
-    rte_eth_dev_stop(port_id);
-    rte_eth_dev_close(port_id);
-
-    std::cout << "All packets sent." << std::endl;
 }
 
 int TxCore(void* args){
+    TxCoreArgs* tx_args = (TxCoreArgs*) args;
+    uint16_t port_id = tx_args->port_id;
+    int* force_quit = tx_args->force_quit;
+    PortStatistics* stats = tx_args->stats;
+    const std::vector<Packet>& packets = tx_args->packets;
+    rte_mempool* mbuf_pool = tx_args->mbuf_pool;
+
+    // printf("mbuf_pool = %p\n", mbuf_pool);
+
+    printf("Starting TX core on port %u\n", port_id);
+    int count = 0;
+
+    while (!(*force_quit)) {
+        // rte_delay_us(1);
+        sendPackets(packets, port_id, mbuf_pool, stats);
+        if(++count == 20){
+            break;
+        }
+    }   
+
     return 0;
 }

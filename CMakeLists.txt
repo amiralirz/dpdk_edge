@@ -18,7 +18,7 @@ pkg_check_modules(Pcap REQUIRED libpcap)
 # target_link_libraries(loader ${DPDK_LIBRARIES} ${Pcap_LIBRARIES})
 # target_compile_options(loader PRIVATE -lpcap -Xcompiler -mssse3)
 
-set (SRCS src/main.cu include/PCAPLoader.cu include/TCore.cu include/RCore.cu include/PortConfig.cu)
+set (SRCS src/main.cu include/PCAPLoader.cu include/TCore.cu include/RCore.cu include/PortConfig.cu include/RTCore.cu)
 
 add_executable(PCP ${SRCS})
 target_include_directories(PCP PUBLIC include ${DPDK_INCLUDE_DIRS} ${Pcap_INCLUDE_DIRS})

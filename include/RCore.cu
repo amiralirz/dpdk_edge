@@ -13,9 +13,11 @@ int RxCore(void* args){
     while(!(*force_quit)){
         nb_rx = rte_eth_rx_burst(port_id, 0, pkts_burst, BUSRT_SIZE);
         for(uint16_t i = 0; i < nb_rx; i++){
+            stats->rx_bytes += pkts_burst[i]->data_len;
             rte_pktmbuf_free(pkts_burst[i]);
         }
         stats->rx_count += nb_rx;
     }
 
+    return 0;
 }

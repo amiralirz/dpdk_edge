@@ -9,21 +9,22 @@
 #include "rte_eal.h"
 #include "rte_ethdev.h"
 
-void sendPackets(const std::vector<Packet>& packets, uint16_t port_id, rte_mempool* mbuf_pool, PortStatistics* stats);
+#define BUSRT_SIZE 128
 
 /*
-* The arguments for the TX core.
+* The arguments for the real-time core.
 */
-struct TxCoreArgs {
-    uint16_t port_id;
+struct RTCoreArgs {
+    uint16_t tx_port_id;
+    uint16_t rx_port_id;
     int* force_quit;
     // uint16_t mtu;
     PortStatistics* stats;
     const std::vector<Packet>& packets;
-    rte_mempool* mbuf_pool;
+    rte_mempool* mbuf_pool_tx;
 };
 
 /*
-* The TX core that sends packets on the given port.
+* The real-time core that sends packets from the tx_port_id and receives packets on the rx_port_id.
 */
-int TxCore(void* args);
+int RTCore(void* args);
